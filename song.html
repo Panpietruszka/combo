@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="pl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apple Music Lyrics - Performance Fix</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --active-color: #ffffff;
+            --inactive-color: rgba(255, 255, 255, 0.25);
+            --lift-distance: -12px;
+            --font-main: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            background: #000;
+            font-family: var(--font-main);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Ekran startowy */
+        #start-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5000;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(100px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.8s ease, visibility 0.8s;
+        }
+
+        #start-btn {
+            background: white;
+            color: black;
+            border: none;
+            padding: 20px 40px;
+            border-radius: 50px;
+            font-size: 24px;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            transition: transform 0.2s;
+        }
+
+        #start-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .background-container {
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            z-index: 1;
+            background: radial-gradient(circle at 20% 30%, #F13268 0%, transparent 45%),
+                radial-gradient(circle at 80% 20%, #F55E4B 0%, transparent 45%),
+                radial-gradient(circle at 40% 70%, #FBA536 0%, transparent 50%),
+                radial-gradient(circle at 70% 80%, #FEAE33 0%, transparent 45%);
+            filter: blur(80px);
+            animation: moveGradient 18s ease-in-out infinite alternate;
+        }
+
+        @keyframes moveGradient {
+            0% {
+                transform: translate(0, 0) rotate(0deg);
+            }
+
+            100% {
+                transform: translate(-3%, -3%) rotate(-3deg);
+            }
+        }
+
+        .glass-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(60px) saturate(160%);
+        }
+
+        #lyrics-outer {
+            height: 85vh;
+            width: 80%;
+            position: absolute;
+            left: 10%;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 1000;
+            overflow-y: scroll;
+            scrollbar-width: none;
+            -webkit-mask-image: linear-gradient(to bottom, transparent, black 20%, black 80%, transparent);
+        }
+
+        #lyrics-outer::-webkit-scrollbar {
+            display: none;
+        }
+
+        #lyrics-container {
+            padding: 45vh 0;
+        }
+
+        .line {
+            font-size: clamp(32px, 5vw, 52px);
+            font-weight: 800;
+            line-height: 1.2;
+            margin: 60px 0;
+            letter-spacing: -0.04em;
+            transition: all 0.5s ease;
+            opacity: 0.15;
+            filter: blur(4px);
+            transform: scale(0.95);
+            transform-origin: left center;
+        }
+
+        .line.active {
+            opacity: 1;
+            filter: blur(0);
+            transform: scale(1);
+        }
+
+        .word {
+            display: inline-flex;
+            margin-right: 0.3em;
+            white-space: pre;
+        }
+
+        .char {
+            display: inline-block;
+            color: var(--inactive-color);
+            transition: transform 0.4s cubic-bezier(0.23, 1, 0.32, 1), color 0.3s ease;
+        }
+
+        .word.playing .char {
+            color: var(--active-color);
+            transform: translateY(var(--lift-distance));
+        }
+
+        #song-info {
+            position: fixed;
+            bottom: 40px;
+            left: 40px;
+            z-index: 2000;
+            color: white;
+            font-weight: 800;
+            font-size: 18px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="start-overlay">
+        <button id="start-btn">Zacznij słuchać</button>
+    </div>
+
+    <div id="song-info">Ładowanie...</div>
+    <div class="background-container"></div>
+    <div class="glass-overlay"></div>
+    <audio id="audio"></audio>
+    <div id="lyrics-outer">
+        <div id="lyrics-container"></div>
+    </div>
+
+    <script>
+        const playlist = [
+            {
+                title: "Brozone's back",
+                src: "song.mp3",
+                startTime: 39,
+                lrc: `[00:02.42]<00:02.42>My <00:02.66>girl's <00:03.00>like <00:03.22>candy, <00:03.64>a <00:03.76>candy <00:04.12>treat
+[00:04.70]<00:04.70>She <00:04.82>knocks <00:05.12>me <00:05.36>right <00:05.68>up <00:05.92>off <00:06.14>my <00:06.30>feet
+[00:06.96]<00:06.96>She's <00:07.24>so <00:07.52>fine <00:08.10>as <00:08.30>can <00:08.46>be
+[00:08.98]<00:08.98>It's <00:09.20>like <00:09.50>a <00:09.66>perfect <00:10.16>harmony
+[00:11.14]<00:11.14>Candy <00:11.82>girl
+[00:13.12]<00:13.12>You <00:13.26>are <00:13.70>my <00:13.96>world
+[00:15.26]<00:15.26>You <00:15.42>look <00:15.80>so <00:16.04>sweet
+[00:17.38]<00:17.38>Come <00:17.58>back <00:17.94>to <00:18.26>me
+[00:19.72]<00:19.72>All <00:20.20>I <00:20.40>know <00:21.66>when <00:21.98>I'm <00:22.28>with <00:22.56>you-
+[00:23.24]<00:23.24>You've <00:23.60>got <00:23.86>the <00:24.10>right <00:24.42>stuff, <00:26.00>baby
+[00:28.10]<00:28.10>Love <00:28.52>the <00:28.88>way <00:29.16>you <00:29.42>turn <00:29.72>me <00:30.06>on <00:30.44>(Oh-oh, oh-oh)
+[00:31.76]<00:31.76>You've <00:32.10>got <00:32.32>the <00:32.58>right <00:32.90>stuff, <00:34.50>baby
+[00:36.20]<00:36.20>You're <00:36.66>the <00:36.88>reason <00:37.38>why <00:37.70>I <00:37.92>sing <00:38.22>this <00:38.44>song
+[00:39.78]<00:39.78>You're <00:40.12>all <00:40.44>I <00:40.72>ever <00:41.14>wanted <00:42.80>(Baby, you're all I ever needed)
+[00:45.08]<00:45.08>You're <00:45.08>all <00:45.08>I <00:45.08>ever <00:45.36>needed, <00:46.96>yeah
+[00:48.26]<00:48.26>So <00:48.52>tell <00:48.82>me <00:49.06>what <00:49.30>to <00:49.62>do <00:50.18>now
+[00:51.18]<00:51.18>When <00:51.56>I <00:51.74>want <00:52.84>you <00:53.86>back
+[00:54.36]<00:54.36>Doom-doom-doom, <00:55.26>dah-dah
+[00:55.78]<00:55.78>Doom-doom-doom, <00:56.48>dah-dah
+[00:57.38]<00:57.38>Ah-ya-ya, <00:58.44>ya-dah, <00:59.12>dah-dah
+[01:00.18]<01:00.18>BroZone's <01:01.30>back, <01:01.88>all <01:02.10>right
+[01:02.50]<01:02.50>Whether <01:02.82>you're <01:02.96>a <01:03.00>bother <01:03.24>or <01:03.28>whether <01:03.70>you're <01:03.92>a <01:03.94>mother
+[01:04.22]<01:04.22>You're <01:04.30>stayin' <01:04.74>alive, <01:05.46>stayin' <01:05.82>alive
+[01:06.54]<01:06.54>Feel <01:06.72>the <01:06.82>city <01:07.08>breakin' <01:07.42>and <01:07.68>everybody <01:08.16>shakin'
+[01:08.42]<01:08.42>People <01:08.68>stayin' <01:09.00>alive, <01:09.72>stayin' <01:10.10>alive
+[01:10.90]<01:10.90>Ah, <01:11.10>ha, <01:12.80>ha, <01:12.88>ha, <01:12.96>stayin' <01:14.70>alive, <01:14.84>stayin' <01:15.20>alive
+[01:15.34]<01:15.34>Doom-doom-doom, <01:16.14>dah-dah
+[01:16.96]<01:16.96>Doom-doom-doom, <01:17.74>dah-dah
+[01:18.02]<01:18.02>I <01:18.40>want <01:18.92>you <01:19.44>back`
+            },
+            {
+                title: "Better Place",
+                src: "song_2.mp3",
+                lrc: `[00:08.88]<00:08.88>It's <00:09.20>some <00:09.40>kind <00:09.68>of <00:09.80>love
+[00:11.32]<00:11.32>It's <00:11.52>some <00:11.72>kind <00:12.04>of <00:12.16>fire
+[00:13.72]<00:13.72>I'm <00:14.04>already <00:14.76>up
+[00:16.08]<00:16.08>But <00:16.28>you <00:16.52>lift <00:16.76>me <00:17.00>higher
+[00:18.48]<00:18.48>You <00:18.72>know <00:19.00>I'm <00:19.20>not <00:19.60>wrong
+[00:20.92]<00:20.92>You <00:21.12>know <00:21.36>I'm <00:21.56>not <00:22.00>lying
+[00:23.44]<00:23.44>We <00:23.72>do <00:24.00>it <00:24.16>better
+[00:25.68]<00:25.68>Yeah <00:25.96>we <00:26.12>do <00:26.36>it <00:26.52>better
+[00:28.20]<00:28.20>Yeah
+[00:28.92]<00:28.92>I <00:29.48>don't <00:30.04>mind <00:30.72>if <00:31.04>the <00:31.24>world <00:31.80>spins <00:32.40>faster
+[00:33.36]<00:33.36>The <00:33.56>music's <00:34.72>louder
+[00:35.64]<00:35.64>The <00:35.88>waves <00:36.44>get <00:36.88>stronger
+[00:38.16]<00:38.16>I <00:38.68>don't <00:39.20>mind <00:39.84>if <00:40.08>the <00:40.32>world <00:40.80>spins <00:41.40>faster <00:42.44>faster <00:43.48>faster
+[00:44.84]<00:44.84>Just <00:45.12>let <00:45.40>me <00:45.64>take <00:45.92>you <00:46.12>to <00:46.52>a <00:46.76>better <00:47.16>place
+[00:49.44]<00:49.44>I'm <00:49.76>gonna <00:50.28>make <00:50.64>you <00:50.84>kiss <00:51.40>the <00:51.68>sky <00:52.40>tonight
+[00:53.56]<00:53.56>Yeah <00:53.92>If <00:54.20>you <00:54.40>let <00:54.68>me <00:54.88>show <00:55.24>the <00:55.44>way
+[00:56.72]<00:56.72>Hey <00:57.80>I'm <00:58.24>so <00:58.56>excited <00:59.72>to <00:59.96>see <01:00.36>you <01:00.64>Excited
+[01:02.12]<01:02.12>Take <01:02.40>you <01:02.60>to <01:02.96>a <01:03.24>better <01:03.60>place
+[01:04.60]<01:04.60>You <01:05.96>and <01:06.20>baby <01:06.68>you <01:06.96>can <01:07.20>love <01:07.72>me <01:08.36>on <01:08.80>the <01:08.96>way
+[01:10.12]<01:10.12>We're <01:10.32>flying <01:10.92>up <01:11.18>to <01:11.50>outer <01:11.86>space
+[01:13.14]<01:13.14>Hey <01:14.30>I'm <01:14.70>so <01:14.98>excited <01:16.14>to <01:16.38>see <01:16.78>you <01:17.06>Excited?
+[01:18.98]<01:18.98>Yeah <01:21.10>yeah
+[01:27.14]<01:27.14>You <01:27.42>like <01:27.66>the <01:27.82>best <01:28.26>down <01:28.78>low
+[01:29.22]<01:29.22>I <01:29.42>wanna <01:29.86>lose <01:30.30>control
+[01:31.34]<01:31.34>I <01:31.54>wanna <01:31.86>dance <01:32.46>all <01:32.82>night
+[01:33.14]<01:33.14>You <01:33.38>like <01:33.70>it <01:33.90>nice <01:34.58>and <01:34.86>slow
+[01:35.46]<01:35.46>Don't <01:35.66>want <01:35.94>it <01:36.10>any <01:36.62>other <01:36.94>way
+[01:37.50]<01:37.50>Tell <01:37.82>your <01:37.98>friends <01:38.34>you're <01:38.54>gonna <01:38.94>stay
+[01:39.50]<01:39.50>When <01:39.74>we're <01:39.90>together
+[01:41.46]<01:41.46>You <01:41.70>know <01:41.90>that <01:42.10>we <01:42.46>do <01:42.90>it <01:43.06>better
+[01:44.18]<01:44.18>I <01:44.62>don't <01:45.10>mind <01:45.74>if <01:45.94>the <01:46.10>world <01:46.62>spins <01:47.18>faster
+[01:48.02]<01:48.02>The <01:48.22>music's <01:49.26>louder
+[01:50.02]<01:50.02>The <01:50.26>waves <01:50.58>are <01:50.86>getting <01:51.22>stronger
+[01:52.86]<01:52.86>I <01:53.10>don't <01:53.38>mind <01:53.90>if <01:54.14>the <01:54.34>world <01:54.82>spins <01:55.38>faster <01:56.38>faster <01:57.42>faster <01:58.42>faster
+[01:58.78]<01:58.78>Just <01:59.02>let <01:59.38>it <01:59.58>take <01:59.82>you <02:00.02>to <02:00.38>a <02:00.62>better <02:01.06>place
+[02:03.34]<02:03.34>I'm <02:03.66>gonna <02:04.14>make <02:04.46>you <02:04.70>kiss <02:05.26>the <02:05.54>sky <02:06.26>tonight
+[02:07.42]<02:07.42>Yeah <02:07.78>If <02:08.02>you <02:08.26>let <02:08.50>me <02:08.70>show <02:09.10>the <02:09.30>way
+[02:11.74]<02:11.74>I'm <02:12.10>so <02:12.42>excited <02:13.58>to <02:13.82>see <02:14.22>you <02:14.50>excited
+[02:15.98]<02:15.98>Take <02:16.26>you <02:16.42>to <02:16.82>a <02:17.02>better <02:17.42>place
+[02:18.46]<02:18.46>You <02:19.82>and <02:20.06>baby <02:20.54>you <02:20.78>can <02:21.12>love <02:21.60>me <02:22.28>on <02:22.72>the <02:22.88>way <02:24.00>but <02:24.56>you're <02:24.72>not <02:25.12>allowed <02:25.52>to <02:25.68>stay
+[02:27.00]<02:27.00>Hey <02:28.12>I'm <02:28.52>so <02:28.84>excited <02:29.96>to <02:30.20>see <02:30.64>you <02:30.92>Excited?
+[02:32.84]<02:32.84>Yeah <02:33.92>I <02:34.40>like <02:34.92>to <02:35.36>see <02:35.96>you <02:36.48>lose <02:37.00>control
+[02:39.56]<02:39.56>Ain't <02:39.72>nobody <02:40.08>better <02:40.52>do <02:40.84>it <02:41.08>better
+[02:42.08]<02:42.08>I <02:42.60>know <02:43.24>I <02:43.60>say <02:44.76>that <02:45.24>you <02:45.76>go <02:46.76>with <02:47.48>me
+[02:52.00]<02:52.00>Just <02:52.36>let <02:52.64>me <02:52.88>take <02:53.20>you <02:53.36>to <02:53.76>a <02:53.96>better <02:54.36>place
+[02:56.76]<02:56.76>I'm <02:57.04>gonna <02:57.48>make <02:57.80>you <02:58.04>kiss <02:58.56>the <02:58.88>sky <02:59.60>tonight
+[03:00.76]<03:00.76>Yeah <03:01.16>If <03:01.40>you <03:01.60>let <03:01.88>me <03:02.04>show <03:02.44>the <03:02.64>way
+[03:05.20]<03:05.20>I'm <03:05.44>so <03:05.84>excited <03:06.92>to <03:07.16>see <03:07.56>you <03:07.84>Excited <03:09.04>to <03:09.28>take <03:09.60>you <03:09.80>to <03:10.12>a <03:10.32>better <03:10.80>place
+[03:11.80]<03:11.80>You <03:13.20>and <03:13.40>baby <03:13.88>you <03:14.12>can <03:14.40>love <03:14.88>me <03:15.52>on <03:16.00>the <03:16.16>way
+[03:17.32]<03:17.32>We're <03:17.52>flying <03:18.08>up <03:18.28>to <03:18.64>outer <03:18.96>space
+[03:20.32]<03:20.32>Hey <03:21.40>I'm <03:21.84>so <03:22.16>excited <03:23.28>to <03:23.56>see <03:23.96>you <03:24.24>Excited?
+[03:26.12]<03:26.12>Yeah`
+            }
+        ];
+
+        let currentTrackIdx = 0;
+        let lyricsData = [];
+        let cachedLines = [];
+        let cachedWords = [];
+        let lastLineIdx = -1;
+        let isUserScrolling = false;
+        let scrollTimeout;
+
+        const audio = document.getElementById('audio');
+        const container = document.getElementById('lyrics-container');
+        const outer = document.getElementById('lyrics-outer');
+        const songInfo = document.getElementById('song-info');
+        const overlay = document.getElementById('start-overlay');
+        const startBtn = document.getElementById('start-btn');
+
+        function parseLrc(lrc) {
+            return lrc.split('\n').map((line, index) => {
+                const words = [];
+                const wordRegex = /<(\d+):(\d+)\.(\d+)>([^<]+)/g;
+                let match;
+                while ((match = wordRegex.exec(line)) !== null) {
+                    const min = parseInt(match[1]);
+                    const sec = parseInt(match[2]);
+                    const fraction = parseFloat("0." + match[3]);
+                    words.push({ time: min * 60 + sec + fraction, text: match[4].trim() });
+                }
+                if (words.length > 0) return { id: index, startTime: words[0].time, words };
+                return null;
+            }).filter(l => l !== null);
+        }
+
+        function loadTrack(idx, autoPlay = false) {
+            currentTrackIdx = idx;
+            const track = playlist[currentTrackIdx];
+            audio.src = track.src;
+
+            // Obsługa startu od konkretnej sekundy
+            audio.currentTime = track.startTime || 0;
+
+            container.innerHTML = '';
+            lyricsData = parseLrc(track.lrc);
+            cachedLines = [];
+            cachedWords = [];
+            lastLineIdx = -1;
+            songInfo.innerText = track.title;
+
+            lyricsData.forEach((lineData, i) => {
+                const lineDiv = document.createElement('div');
+                lineDiv.className = 'line';
+                lineDiv.onclick = () => { audio.currentTime = lineData.startTime; audio.play(); isUserScrolling = false; };
+
+                const lineWordsRefs = [];
+                lineData.words.forEach(w => {
+                    const wordSpan = document.createElement('span');
+                    wordSpan.className = 'word';
+                    w.text.split('').forEach((char, ci) => {
+                        const charSpan = document.createElement('span');
+                        charSpan.className = 'char';
+                        charSpan.innerText = char;
+                        charSpan.style.transitionDelay = `${ci * 0.03}s`;
+                        wordSpan.appendChild(charSpan);
+                    });
+                    lineDiv.appendChild(wordSpan);
+                    lineWordsRefs.push({ el: wordSpan, time: w.time });
+                });
+
+                container.appendChild(lineDiv);
+                cachedLines.push(lineDiv);
+                cachedWords.push(lineWordsRefs);
+            });
+
+            if (autoPlay) audio.play();
+        }
+
+        function update() {
+            const now = audio.currentTime;
+            let currentLineIdx = -1;
+
+            for (let i = 0; i < lyricsData.length; i++) {
+                if (now >= lyricsData[i].startTime) currentLineIdx = i;
+                else break;
+            }
+
+            if (currentLineIdx !== lastLineIdx) {
+                cachedLines.forEach((line, idx) => {
+                    line.classList.toggle('active', idx === currentLineIdx);
+                });
+                if (currentLineIdx !== -1 && !isUserScrolling) {
+                    const activeLine = cachedLines[currentLineIdx];
+                    const scrollPos = activeLine.offsetTop - (outer.clientHeight / 2) + (activeLine.clientHeight / 2);
+                    outer.scrollTo({ top: scrollPos, behavior: 'smooth' });
+                }
+                lastLineIdx = currentLineIdx;
+            }
+
+            if (currentLineIdx !== -1) {
+                const wordsInLine = cachedWords[currentLineIdx];
+                wordsInLine.forEach(wordObj => {
+                    wordObj.el.classList.toggle('playing', now >= wordObj.time);
+                });
+            }
+            requestAnimationFrame(update);
+        }
+
+        // Obsługa zakończenia utworu (Następny + Pętla)
+        audio.onended = () => {
+            let nextIdx = (currentTrackIdx + 1) % playlist.length;
+            loadTrack(nextIdx, true);
+        };
+
+        // Obsługa startu
+        startBtn.onclick = () => {
+            overlay.style.opacity = '0';
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                audio.play();
+            }, 800);
+        };
+
+        outer.addEventListener('scroll', () => {
+            isUserScrolling = true;
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => isUserScrolling = false, 3000);
+        });
+
+        loadTrack(0);
+        requestAnimationFrame(update);
+    </script>
+</body>
+
+</html>

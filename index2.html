@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apple Music Lyric Background Effect</title>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            background: #000;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        /* 1. ANIMOWANE TŁO (Gradienty wyciągnięte ze zdjęcia) */
+        .background-container {
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            z-index: 1;
+            /* Twoje kolory z palety */
+            background: radial-gradient(circle at 20% 30%, #F13268 0%, transparent 45%),
+                        radial-gradient(circle at 80% 20%, #F55E4B 0%, transparent 45%),
+                        radial-gradient(circle at 40% 70%, #FBA536 0%, transparent 50%),
+                        radial-gradient(circle at 70% 80%, #FEAE33 0%, transparent 45%);
+            filter: blur(80px); 
+            animation: moveGradient 15s ease-in-out infinite alternate;
+        }
+
+        @keyframes moveGradient {
+            0% {
+                transform: translate(0, 0) rotate(0deg);
+            }
+
+            50% {
+                transform: translate(5%, 10%) rotate(5deg);
+            }
+
+            100% {
+                transform: translate(-5%, -5%) rotate(-5deg);
+            }
+        }
+
+        /* 2. WARSTWA FROSTED GLASS (Szkło) */
+        .glass-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            /* Kluczowe parametry efektu Apple Music */
+            background: rgba(0, 0, 0, 0.2);
+            /* "Smoked" effect - przyciemnienie */
+            backdrop-filter: blur(60px) saturate(150%);
+            -webkit-backdrop-filter: blur(60px) saturate(150%);
+        }
+
+        /* 3. TEKSTURA SZUMU (Opcjonalna, dla realizmu) */
+        .noise {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
+            opacity: 0.04;
+            pointer-events: none;
+            background-image: url('https://grainy-gradients.vercel.app/noise.svg');
+        }
+
+        /* TREŚĆ NA WIERZCHU */
+        .content {
+            position: relative;
+            z-index: 4;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100vh;
+            padding: 0 10%;
+        }
+
+        h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+
+        p {
+            font-size: 1.5rem;
+            font-weight: 600;
+            opacity: 0.5;
+            transition: 0.3s;
+        }
+
+        p:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="background-container"></div>
+    <div class="glass-overlay"></div>
+    <div class="noise"></div>
+</body>
+
+</html>
